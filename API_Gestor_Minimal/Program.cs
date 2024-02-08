@@ -139,10 +139,17 @@ app.MapDelete("/usuario/{id}", async (Guid id, DataContext db) =>
     return Results.NotFound();
 });
 
-app.MapPost("/security/crearToken",
-[AllowAnonymous] (LoginDTO login) =>
+app.MapPost("/security/crearToken", 
+[AllowAnonymous] async (UsuarioDTO usuarioDto , DataContext db) =>
 {
-    if (login.Email == "login" && login.Password == "123")
+    Utiles utiles = new Utiles();
+    var usuario = await db.Usuarios.FindAsync(usuarioDto.Email);
+
+    if(usuario == null) return Results.NotFound();
+
+    bool verificado = utiles.VerifyPasswordHash(usuarioDto.Password, usuario.PasswordHash, usuario.PasswordSalt);
+
+    if (verificado)
     {
         var issuer = builder.Configuration["Jwt:Issuer"];
         var audience = builder.Configuration["Jwt:Audience"];
@@ -153,8 +160,8 @@ app.MapPost("/security/crearToken",
             Subject = new ClaimsIdentity(new[]
             {
                 new Claim("Id", Guid.NewGuid().ToString()),
-                new Claim(JwtRegisteredClaimNames.Sub, login.Email),
-                new Claim(JwtRegisteredClaimNames.Email, login.Email),
+                new Claim(JwtRegisteredClaimNames.Email, usuario.Email),
+                new Claim(JwtRegisteredClaimNames.Name, $"{usuario.Nombre} {usuario.ApellidoP}"),
                 new Claim(JwtRegisteredClaimNames.Jti,
                 Guid.NewGuid().ToString())
             }),
